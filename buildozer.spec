@@ -1,3 +1,4 @@
+inilog_level = 2
 [app]
 
 # (str) Title of your application
@@ -181,4 +182,5 @@ warn_on_root = 1
 
 # (str) Path to build output (i.e. .apk, .aab, .ipa) storage
 # bin_dir = ./bin
+
 
