@@ -22,54 +22,18 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
     
-    - name: Install system dependencies
+    - name: Install system dependencies and aidl
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          build-essential \
-          git \
-          zip \
-          unzip \
-          wget \
-          autoconf \
-          libtool \
-          pkg-config \
-          zlib1g-dev \
-          libncurses5-dev \
-          libffi-dev \
-          libssl-dev \
-          ccache \
-          cmake \
-          ninja-build \
-          aidl
-    
-    - name: Verify Aidl installation
-      run: |
+          build-essential git zip unzip wget \
+          autoconf libtool pkg-config \
+          zlib1g-dev libncurses5-dev \
+          libffi-dev libssl-dev ccache \
+          cmake ninja-build aidl
+        
+        echo "System aidl installed at:"
         which aidl
-        aidl --version || echo "Aidl installed"
-    
-    - name: Setup Android SDK
-      run: |
-        mkdir -p $HOME/android-sdk/cmdline-tools
-        cd $HOME/android-sdk/cmdline-tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip
-        mv cmdline-tools latest
-        
-        export ANDROID_HOME=$HOME/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2
-        
-        yes | sdkmanager --licenses || true
-        sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2" "ndk;25.2.9519653"
-        
-        # Создаём симлинк на системный aidl если нужно
-        sudo ln -sf /usr/bin/aidl $HOME/android-sdk/build-tools/33.0.2/aidl || true
-        
-        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/build-tools/33.0.2" >> $GITHUB_PATH
-        echo "/usr/bin" >> $GITHUB_PATH
     
     - name: Install Buildozer
       run: |
@@ -82,10 +46,45 @@ jobs:
         path: .buildozer
         key: buildozer-${{ hashFiles('buildozer.spec') }}
     
-    - name: Build APK
+    - name: Initialize Buildozer (download Android SDK)
       run: |
-        # Явно указываем путь к aidl
-        export PATH=/usr/bin:$PATH
+        # Запускаем buildozer чтобы он создал структуру папок и скачал SDK
+        buildozer android debug || true
+    
+    - name: Copy system aidl to Buildozer SDK
+      run: |
+        # Ждём пока Buildozer создаст папки
+        sleep 5
+        
+        # Находим папку build-tools
+        BUILD_TOOLS_DIR=$(find ~/.buildozer/android/platform/android-sdk -type d -name "build-tools" 2>/dev/null | head -1)
+        
+        if [ -z "$BUILD_TOOLS_DIR" ]; then
+          echo "Creating build-tools directory..."
+          mkdir -p ~/.buildozer/android/platform/android-sdk/build-tools/33.0.2
+          BUILD_TOOLS_DIR=~/.buildozer/android/platform/android-sdk/build-tools
+        fi
+        
+        echo "Build-tools directory: $BUILD_TOOLS_DIR"
+        
+        # Находим все версии build-tools и копируем aidl в каждую
+        for dir in $BUILD_TOOLS_DIR/*/; do
+          if [ -d "$dir" ]; then
+            echo "Copying aidl to $dir"
+            sudo cp /usr/bin/aidl "$dir/"
+            sudo chmod +x "$dir/aidl"
+          fi
+        done
+        
+        # Также копируем в основную папку на всякий случай
+        sudo cp /usr/bin/aidl $BUILD_TOOLS_DIR/
+        sudo chmod +x $BUILD_TOOLS_DIR/aidl
+        
+        echo "Aidl copied successfully!"
+        ls -la $BUILD_TOOLS_DIR/*/aidl 2>/dev/null || echo "Checking aidl locations..."
+    
+    - name: Build APK (retry)
+      run: |
         buildozer android debug
     
     - name: Upload APK
