@@ -1,3 +1,4 @@
+```yaml
 name: Build Android APK
 
 on:
@@ -6,29 +7,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v2
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v2
       with:
         python-version: '3.9'
-    
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3-pip build-essential git zip unzip openjdk-17-jdk wget
-        pip3 install --upgrade pip
-        pip3 install buildozer cython
-    
+        sudo apt-get install -y git zip unzip openjdk-11-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libtinfo5 cmake libffi-dev libssl-dev
+        pip3 install buildozer
     - name: Build APK
-      run: |
-        buildozer android debug
-    
+      run: buildozer android debug
     - name: Upload APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: app-debug
         path: bin/*.apk
