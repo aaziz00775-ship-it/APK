@@ -29,12 +29,13 @@ jobs:
           build-essential git zip unzip wget \
           autoconf libtool pkg-config \
           zlib1g-dev libncurses5-dev \
-          libffi-dev libssl-dev ccache
+          libffi-dev libssl-dev
     
     - name: Install Buildozer
       run: |
         pip3 install --upgrade pip
-        pip3 install --upgrade buildozer cython==0.29.36
+        pip3 install --upgrade buildozer
+        pip3 install --upgrade cython
     
     - name: Cache Buildozer
       uses: actions/cache@v3
@@ -44,25 +45,20 @@ jobs:
         restore-keys: |
           buildozer-
     
-    - name: Make buildozer directory writable
-      run: |
-        mkdir -p .buildozer
-        chmod -R 777 .buildozer
-    
     - name: Build APK
       run: |
-        # Разрешаем Buildozer работать (обходим проверку root)
-        yes | buildozer android debug || buildozer android debug
-      env:
-        BUILDOZER_WARN_ON_ROOT: 0
+        yes | buildozer -v android debug
+      continue-on-error: false
     
-    - name: List built files
-      if: always()
+    - name: Show build directory if failed
+      if: failure()
       run: |
-        echo "Contents of bin directory:"
-        ls -la bin/ || echo "No bin directory found"
-        echo "Contents of current directory:"
+        echo "=== Build directory contents ==="
         ls -la
+        echo "=== Buildozer directory ==="
+        ls -la .buildozer/ || echo "No .buildozer directory"
+        echo "=== Last 100 lines of buildozer log ==="
+        cat .buildozer/android/platform/build-*/build.log 2>/dev/null | tail -100 || echo "No build log found"
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
